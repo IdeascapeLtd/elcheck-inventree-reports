@@ -1,0 +1,115 @@
+{% extends "report/inventree_report_base.html" %}
+{% load report %}
+{% load i18n %}
+
+{# ============================================================
+   Project Stock Cost Report
+   ------------------------------------------------------------
+   Model type: Stock Location
+   Run this report against any location under "Projects"
+   (e.g. Projects > <Project Name>) to see the cost of every
+   stock item currently held at that location.
+
+   Built against InvenTree's current report-template engine
+   ({% load report %} tags: multiply / render_currency).
+   If your instance is on an older version (pre ~1.0 / 0.17)
+   these tags may not exist yet - let me know the version and
+   this gets rewritten for the legacy engine.
+   ============================================================ #}
+
+{% block page_margin %}
+  margin: 15mm 12mm;
+{% endblock %}
+
+{% block style %}
+  h1 { font-size: 16pt; margin-bottom: 1mm; }
+  h2 { font-size: 11pt; color: #555; margin-top: 0; font-weight: normal; }
+  .meta { font-size: 8pt; color: #777; margin-bottom: 5mm; }
+  table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  th, td { border-bottom: 1px solid #ccc; padding: 2mm 1.5mm; text-align: left; }
+  th { background: #f2f2f2; text-transform: uppercase; font-size: 7.5pt; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  tr.missing-price td { color: #b00020; font-style: italic; }
+  .note { font-size: 8pt; color: #777; margin-top: 4mm; }
+  .warn { font-size: 8.5pt; color: #b00020; margin-top: 3mm; }
+{% endblock %}
+
+{% block page_content %}
+
+<h1>{% trans "Project Stock Cost Report" %}</h1>
+<h2>{{ stock_location.name }}</h2>
+<div class="meta">
+  {% trans "Location path" %}: {{ stock_location.pathstring }}<br>
+  {% trans "Generated" %}: {% now "Y-m-d H:i" %}
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>{% trans "Part" %}</th>
+      <th>{% trans "IPN" %}</th>
+      <th class="num">{% trans "Qty" %}</th>
+      <th class="num">{% trans "Unit Cost" %}</th>
+      <th class="num">{% trans "Line Value" %}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in stock_items.all %}
+    <tr {% if not item.purchase_price %}class="missing-price"{% endif %}>
+      <td>{{ item.part.full_name }}</td>
+      <td>{{ item.part.IPN|default:"-" }}</td>
+      <td class="num">{{ item.quantity }}</td>
+      <td class="num">
+        {% if item.purchase_price %}
+          {% render_currency item.purchase_price include_symbol=False decimal_places=2 %}
+        {% else %}
+          {% trans "no cost recorded" %}
+        {% endif %}
+      </td>
+      <td class="num">
+        {% if item.purchase_price %}
+          {% multiply item.purchase_price item.quantity as line_value %}
+          {% render_currency line_value currency=item.purchase_price_currency include_symbol=False decimal_places=2 %}
+        {% else %}
+          &mdash;
+        {% endif %}
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5">{% trans "No stock items currently held at this location." %}</td></tr>
+    {% endfor %}
+  </tbody>
+  {% if total_value_available %}
+  <tfoot>
+    {% if total_value_mixed %}
+      {% for currency, total in total_value_by_currency.items %}
+      <tr>
+        <td colspan="4">{% trans "Total" %} ({{ currency }})</td>
+        <td class="num">{{ total|floatformat:2 }}</td>
+      </tr>
+      {% endfor %}
+    {% else %}
+      <tr>
+        <td colspan="4">{% trans "Total" %}</td>
+        <td class="num">{{ total_value|floatformat:2 }}</td>
+      </tr>
+    {% endif %}
+  </tfoot>
+  {% endif %}
+</table>
+
+<div class="note">
+  {% trans "This report shows stock currently held at this location only - if items were transferred here and later returned to main stores, they will no longer appear, and their cost will not be included." %}
+</div>
+
+{% if total_value_mixed %}
+<div class="warn">
+  {% trans "Stock items in this location are priced in more than one currency, so totals are shown separately per currency rather than added together." %}
+</div>
+{% endif %}
+
+<div class="warn">
+  {% trans "Rows shown in red have no purchase price recorded in InvenTree and are excluded from the total" %}{% if missing_price_count %} ({{ missing_price_count }} {% trans "item(s)" %}){% endif %} &mdash; {% trans "check goods-receipt pricing for these items." %}
+</div>
+
+{% endblock %}

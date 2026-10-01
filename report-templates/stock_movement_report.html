@@ -1,0 +1,191 @@
+{% extends "report/inventree_report_base.html" %}
+{% load report %}
+
+{# ============================================================
+   Stock Movement Summary
+   ------------------------------------------------------------
+   Model type: Stock Location   (tick "Landscape")
+   Requires the "Stock Movement Report" plugin, which provides
+   the stock_movement context variable.
+
+   Print from any location: the report covers that location and
+   every store below it (or the whole system, if the plugin's
+   "Always report the whole system" setting is on).
+   ============================================================ #}
+
+{% block page_margin %}
+margin: 12mm 10mm 15mm 10mm;
+{% endblock %}
+
+{% block bottom_left %}
+content: "Stock Movement Summary";
+font-size: 7pt;
+color: #888;
+{% endblock %}
+
+{% block style %}
+body { font-size: 8pt; color: #222; }
+h1 { font-size: 15pt; margin: 0 0 1mm 0; }
+h2 { font-size: 11pt; margin: 6mm 0 2mm 0; padding-bottom: 1mm; border-bottom: 1px solid #999; }
+h3 { font-size: 9pt; margin: 0 0 1.5mm 0; }
+.meta { font-size: 8pt; color: #666; margin-bottom: 4mm; line-height: 1.5; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 4mm; }
+th, td { padding: 1.1mm 1.4mm; border-bottom: 0.5px solid #d4d4d4; text-align: right; white-space: nowrap; }
+th { background: #eef0f3; font-size: 6.8pt; text-transform: uppercase; }
+th.group { text-align: center; border-bottom: 0.5px solid #b8bcc4; }
+th.name, td.name { text-align: left; white-space: normal; }
+td.closing, th.closing { background: #f2f5f9; font-weight: bold; }
+tr.level-0 td { font-weight: bold; background: #f7f7f9; }
+tr.total td { font-weight: bold; border-top: 1px solid #555; border-bottom: none; }
+h2, h3 { page-break-after: avoid; }
+h2.detail { page-break-before: always; margin-top: 0; }
+.store { page-break-inside: avoid; margin-bottom: 1mm; }
+.store th, .store td { padding: 0.6mm 1.4mm; }
+.store td { font-size: 7.4pt; }
+.notes { font-size: 7.5pt; color: #555; margin-top: 5mm; padding-left: 4mm; }
+.notes li { margin-bottom: 1mm; }
+{% endblock %}
+
+{% block page_content %}
+{% with rep=stock_movement %}
+{% if not rep %}
+
+<h1>Stock Movement Summary</h1>
+<p>This report needs the "Stock Movement Report" plugin to be installed and enabled.</p>
+
+{% else %}
+
+<h1>Stock Movement Summary</h1>
+<div class="meta">
+  Stores: {{ rep.scope_label }}<br>
+  Period: {{ rep.period_label }}<br>
+  Values: purchase cost ({{ rep.currency }})<br>
+  Generated: {% now "Y-m-d H:i" %}
+</div>
+
+{# ---------------- Summary for the whole period ---------------- #}
+<h2>Summary: {{ rep.period_label }}</h2>
+<table>
+  <thead>
+    <tr>
+      <th class="name" rowspan="2">Store</th>
+      <th class="group" colspan="2">Opening {{ rep.months.0 }}</th>
+      <th class="group" colspan="2">Stock in</th>
+      <th class="group" colspan="2">Stock out</th>
+      {% if rep.has_adjustments %}<th class="group" colspan="2">Adjustments</th>{% endif %}
+      <th class="group closing" colspan="2">Closing</th>
+    </tr>
+    <tr>
+      <th>Qty</th><th>Value</th>
+      <th>Qty</th><th>Value</th>
+      <th>Qty</th><th>Value</th>
+      {% if rep.has_adjustments %}<th>Qty</th><th>Value</th>{% endif %}
+      <th class="closing">Qty</th><th class="closing">Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rep.rows %}
+    <tr class="level-{{ row.level }}">
+      <td class="name" style="padding-left: {{ row.indent }}mm;">{{ row.name }}</td>
+      <td>{{ row.period.opening_qty|floatformat:"-2g" }}</td>
+      <td>{{ row.period.opening_value|floatformat:"2g" }}</td>
+      <td>{{ row.period.in_qty|floatformat:"-2g" }}</td>
+      <td>{{ row.period.in_value|floatformat:"2g" }}</td>
+      <td>{{ row.period.out_qty|floatformat:"-2g" }}</td>
+      <td>{{ row.period.out_value|floatformat:"2g" }}</td>
+      {% if rep.has_adjustments %}
+      <td>{{ row.period.adj_qty|floatformat:"-2g" }}</td>
+      <td>{{ row.period.adj_value|floatformat:"2g" }}</td>
+      {% endif %}
+      <td class="closing">{{ row.period.closing_qty|floatformat:"-2g" }}</td>
+      <td class="closing">{{ row.period.closing_value|floatformat:"2g" }}</td>
+    </tr>
+    {% empty %}
+    <tr><td class="name" colspan="11">No stores to report.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{# ---------------- Month by month, per store ---------------- #}
+<h2 class="detail">Monthly detail per store</h2>
+{% for row in rep.rows %}
+<div class="store">
+  <h3>{{ row.path }}</h3>
+  <table>
+    <thead>
+      <tr>
+        <th class="name" rowspan="2">Month</th>
+        <th class="group" colspan="2">Opening</th>
+        <th class="group" colspan="2">Stock in</th>
+        <th class="group" colspan="2">Stock out</th>
+        {% if rep.has_adjustments %}<th class="group" colspan="2">Adjustments</th>{% endif %}
+        <th class="group closing" colspan="2">Closing</th>
+      </tr>
+      <tr>
+        <th>Qty</th><th>Value</th>
+        <th>Qty</th><th>Value</th>
+        <th>Qty</th><th>Value</th>
+        {% if rep.has_adjustments %}<th>Qty</th><th>Value</th>{% endif %}
+        <th class="closing">Qty</th><th class="closing">Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for month in row.months %}
+      <tr>
+        <td class="name">{{ month.label }}</td>
+        <td>{{ month.opening_qty|floatformat:"-2g" }}</td>
+        <td>{{ month.opening_value|floatformat:"2g" }}</td>
+        <td>{{ month.in_qty|floatformat:"-2g" }}</td>
+        <td>{{ month.in_value|floatformat:"2g" }}</td>
+        <td>{{ month.out_qty|floatformat:"-2g" }}</td>
+        <td>{{ month.out_value|floatformat:"2g" }}</td>
+        {% if rep.has_adjustments %}
+        <td>{{ month.adj_qty|floatformat:"-2g" }}</td>
+        <td>{{ month.adj_value|floatformat:"2g" }}</td>
+        {% endif %}
+        <td class="closing">{{ month.closing_qty|floatformat:"-2g" }}</td>
+        <td class="closing">{{ month.closing_value|floatformat:"2g" }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="total">
+        <td class="name">Period</td>
+        <td>{{ row.period.opening_qty|floatformat:"-2g" }}</td>
+        <td>{{ row.period.opening_value|floatformat:"2g" }}</td>
+        <td>{{ row.period.in_qty|floatformat:"-2g" }}</td>
+        <td>{{ row.period.in_value|floatformat:"2g" }}</td>
+        <td>{{ row.period.out_qty|floatformat:"-2g" }}</td>
+        <td>{{ row.period.out_value|floatformat:"2g" }}</td>
+        {% if rep.has_adjustments %}
+        <td>{{ row.period.adj_qty|floatformat:"-2g" }}</td>
+        <td>{{ row.period.adj_value|floatformat:"2g" }}</td>
+        {% endif %}
+        <td class="closing">{{ row.period.closing_qty|floatformat:"-2g" }}</td>
+        <td class="closing">{{ row.period.closing_value|floatformat:"2g" }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+
+{# ---------------- How to read this report ---------------- #}
+<ul class="notes">
+  <li>Each store includes all of its sub-stores. Transfers between sub-stores of the same store are not counted as stock in or out of that store.</li>
+  <li>Quantities are added up across parts in each part's own unit (e.g. each, metres).</li>
+  <li>Figures are rebuilt from InvenTree's stock history. Stock items that have been deleted from InvenTree are not included in past months.</li>
+  {% if rep.counts.missing_price %}
+  <li>{{ rep.counts.missing_price }} stock item(s) have no purchase price. They are counted in quantities but valued at zero.</li>
+  {% endif %}
+  {% if rep.has_adjustments %}
+  <li>Adjustments are differences between InvenTree's history and the actual stock on hand today ({{ rep.counts.adjusted }} stock item(s)). They are shown in the current month so that closing figures always match current stock.</li>
+  {% endif %}
+  {% if rep.counts.estimated_location %}
+  <li>{{ rep.counts.estimated_location }} stock item(s) had no recorded starting location; the original stock item's location was used.</li>
+  {% endif %}
+  {% if rep.counts.unknown_location %}
+  <li>{{ rep.counts.unknown_location }} stock item(s) had no recorded starting location and are only counted from their first recorded move.</li>
+  {% endif %}
+</ul>
+
+{% endif %}
+{% endwith %}
+{% endblock %}

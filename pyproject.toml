@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ideascape-stock-reports"
+version = "2.0.0"
+description = "Project stock cost totals and monthly stock movement summary for InvenTree reports"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Ideascape" }]
+
+[project.entry-points."inventree_plugins"]
+IdeascapeStockReports = "ideascape_stock_reports.plugin:IdeascapeStockReportsPlugin"
+
+[tool.setuptools]
+packages = ["ideascape_stock_reports"]
